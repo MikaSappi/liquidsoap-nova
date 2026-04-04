@@ -1,0 +1,1 @@
+Liquidsoap.novaextension/CHANGELOG.md

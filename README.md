@@ -1,0 +1,1 @@
+Liquidsoap.novaextension/README.md
