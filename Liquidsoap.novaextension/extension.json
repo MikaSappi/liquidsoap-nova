@@ -1,14 +1,15 @@
 {
-    "identifier": "com.mikasappi.liquidsoap",
+    "identifier": "com.fremen.liquidsoap",
     "name": "Liquidsoap",
-    "organization": "Mika Säppi",
+    "organization": "Mika Säppi / Fremen / Collins Group",
     "description": "Liquidsoap language support for Nova — syntax highlighting, completions, and formatting.",
     "version": "0.1.0",
     "license": "MIT",
-    "repository": "https://github.com/savonet/vscode-liquidsoap",
+    "repository": "https://github.com/MikaSappi/liquidsoap-nova",
     "categories": ["languages", "formatters", "completions"],
+    "bugs": "https://github.com/MikaSappi/liquidsoap-nova/issues",
 
-    "main": "Scripts/main.js",
+    "main": "main.js",
 
     "entitlements": {
         "process": true,
