@@ -1,0 +1,619 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<completions>
+
+	<!-- General identifier completion (not after a dot, not inside strings/comments) -->
+	<provider name="identifier">
+		<syntax>liquidsoap</syntax>
+		<selector>*:not(string,comment)</selector>
+		<expression>(?&lt;!\.)\b[a-zA-Z_][a-zA-Z0-9_]*</expression>
+
+		<symbols type="function">
+			<behavior>
+				<arguments prefix="(" suffix=")" separator=", " />
+			</behavior>
+		</symbols>
+		<symbols type="variable,constant,argument" />
+
+		<set>liquidsoap.keywords</set>
+		<set>liquidsoap.types</set>
+		<set>liquidsoap.preprocessor</set>
+		<set>liquidsoap.encoders</set>
+		<set>liquidsoap.functions.output</set>
+		<set>liquidsoap.functions.input</set>
+		<set>liquidsoap.functions.source</set>
+		<set>liquidsoap.functions.mixing</set>
+		<set>liquidsoap.functions.effects</set>
+		<set>liquidsoap.functions.events</set>
+		<set>liquidsoap.functions.util</set>
+		<set>liquidsoap.functions.system</set>
+		<set>liquidsoap.functions.server</set>
+	</provider>
+
+	<!-- Method/dotted completion (after a dot) -->
+	<provider name="method">
+		<syntax>liquidsoap</syntax>
+		<selector>*:not(string,comment)</selector>
+		<expression>(?&lt;=\.)[a-zA-Z_][a-zA-Z0-9_]*</expression>
+
+		<symbols type="method,property" />
+
+		<set>liquidsoap.functions.output</set>
+		<set>liquidsoap.functions.input</set>
+		<set>liquidsoap.functions.source</set>
+		<set>liquidsoap.functions.effects</set>
+		<set>liquidsoap.functions.events</set>
+		<set>liquidsoap.functions.util</set>
+		<set>liquidsoap.functions.system</set>
+		<set>liquidsoap.functions.server</set>
+	</provider>
+
+	<!-- ==================== KEYWORDS ==================== -->
+	<set name="liquidsoap.keywords" symbol="statement">
+		<completion string="let">
+			<behavior>
+				<append> $[name] = </append>
+			</behavior>
+		</completion>
+		<completion string="def">
+			<behavior>
+				<append> $[name]($[args])
+  $[body]
+end</append>
+			</behavior>
+		</completion>
+		<completion string="fun">
+			<behavior>
+				<append> ($[args]) -> $[body]</append>
+			</behavior>
+		</completion>
+		<completion string="if">
+			<behavior>
+				<append> $[condition] then
+  $[body]
+end</append>
+			</behavior>
+		</completion>
+		<completion string="then" />
+		<completion string="else" />
+		<completion string="elsif">
+			<behavior>
+				<append> $[condition] then</append>
+			</behavior>
+		</completion>
+		<completion string="end" />
+		<completion string="begin" />
+		<completion string="for">
+			<behavior>
+				<append> $[i] = $[start] to $[end] do
+  $[body]
+end</append>
+			</behavior>
+		</completion>
+		<completion string="to" />
+		<completion string="do" />
+		<completion string="while">
+			<behavior>
+				<append> $[condition] do
+  $[body]
+end</append>
+			</behavior>
+		</completion>
+		<completion string="try">
+			<behavior>
+				<append>
+  $[body]
+catch $[err] do
+  $[handler]
+end</append>
+			</behavior>
+		</completion>
+		<completion string="catch" />
+		<completion string="finally" />
+		<completion string="open" />
+		<completion string="and" />
+		<completion string="or" />
+		<completion string="not" />
+		<completion string="mod" />
+		<completion string="rec" />
+		<completion string="replaces" />
+	</set>
+
+	<!-- ==================== TYPES ==================== -->
+	<set name="liquidsoap.types" symbol="type">
+		<completion string="int" />
+		<completion string="float" />
+		<completion string="bool" />
+		<completion string="string" />
+		<completion string="unit" />
+		<completion string="never" />
+		<completion string="ref" />
+		<completion string="source" />
+	</set>
+
+	<!-- ==================== PREPROCESSOR ==================== -->
+	<set name="liquidsoap.preprocessor" symbol="statement">
+		<completion string="%include" />
+		<completion string="%include_extra" />
+		<completion string="%ifdef" />
+		<completion string="%ifndef" />
+		<completion string="%ifversion" />
+		<completion string="%ifnversion" />
+		<completion string="%ifencoder" />
+		<completion string="%ifnencoder" />
+		<completion string="%else" />
+		<completion string="%endif" />
+	</set>
+
+	<!-- ==================== ENCODERS ==================== -->
+	<set name="liquidsoap.encoders" symbol="constant">
+		<completion string="%mp3" />
+		<completion string="%mp3.cbr" />
+		<completion string="%mp3.vbr" />
+		<completion string="%mp3.abr" />
+		<completion string="%fdkaac" />
+		<completion string="%vorbis" />
+		<completion string="%vorbis.cbr" />
+		<completion string="%vorbis.abr" />
+		<completion string="%opus" />
+		<completion string="%flac" />
+		<completion string="%wav" />
+		<completion string="%ogg" />
+		<completion string="%ffmpeg" />
+		<completion string="%external" />
+	</set>
+
+	<!-- ==================== OUTPUT FUNCTIONS ==================== -->
+	<set name="liquidsoap.functions.output" symbol="function">
+		<completion string="output">
+			<behavior>
+				<append>($[source])</append>
+			</behavior>
+		</completion>
+		<completion string="output.icecast">
+			<behavior>
+				<append>($[%vorbis], host=$["localhost"], port=$[8000], password=$["hackme"], mount=$["/"], $[source])</append>
+			</behavior>
+		</completion>
+		<completion string="output.file">
+			<behavior>
+				<append>($[%vorbis], $[path], $[source])</append>
+			</behavior>
+		</completion>
+		<completion string="output.harbor">
+			<behavior>
+				<append>($[%vorbis], mount=$["/"], $[source])</append>
+			</behavior>
+		</completion>
+		<completion string="output.dummy">
+			<behavior>
+				<append>($[source])</append>
+			</behavior>
+		</completion>
+		<completion string="output.pulseaudio">
+			<behavior>
+				<append>($[source])</append>
+			</behavior>
+		</completion>
+		<completion string="output.alsa">
+			<behavior>
+				<append>($[source])</append>
+			</behavior>
+		</completion>
+		<completion string="output.hls">
+			<behavior>
+				<append>($[path], $[source])</append>
+			</behavior>
+		</completion>
+		<completion string="output.url">
+			<behavior>
+				<append>(url=$["rtmp://..."], $[source])</append>
+			</behavior>
+		</completion>
+		<completion string="output.youtube.live">
+			<behavior>
+				<append>(key=$["stream_key"], $[source])</append>
+			</behavior>
+		</completion>
+	</set>
+
+	<!-- ==================== INPUT FUNCTIONS ==================== -->
+	<set name="liquidsoap.functions.input" symbol="function">
+		<completion string="input.http">
+			<behavior>
+				<append>($["http://..."])</append>
+			</behavior>
+		</completion>
+		<completion string="input.harbor">
+			<behavior>
+				<append>($["/"], port=$[8005])</append>
+			</behavior>
+		</completion>
+		<completion string="input.pulseaudio">
+			<behavior>
+				<append>()</append>
+			</behavior>
+		</completion>
+		<completion string="input.alsa">
+			<behavior>
+				<append>()</append>
+			</behavior>
+		</completion>
+		<completion string="input.ffmpeg">
+			<behavior>
+				<append>($[input_url])</append>
+			</behavior>
+		</completion>
+		<completion string="input.external">
+			<behavior>
+				<append>($["command"])</append>
+			</behavior>
+		</completion>
+	</set>
+
+	<!-- ==================== SOURCE FUNCTIONS ==================== -->
+	<set name="liquidsoap.functions.source" symbol="function">
+		<completion string="playlist">
+			<behavior>
+				<append>($["path/to/playlist"])</append>
+			</behavior>
+		</completion>
+		<completion string="playlist.safe">
+			<behavior>
+				<append>($["path/to/playlist"])</append>
+			</behavior>
+		</completion>
+		<completion string="single">
+			<behavior>
+				<append>($["file.mp3"])</append>
+			</behavior>
+		</completion>
+		<completion string="blank">
+			<behavior>
+				<append>(duration=$[1.])</append>
+			</behavior>
+		</completion>
+		<completion string="sine">
+			<behavior>
+				<append>($[440.])</append>
+			</behavior>
+		</completion>
+		<completion string="noise">
+			<behavior>
+				<append>()</append>
+			</behavior>
+		</completion>
+		<completion string="request.create">
+			<behavior>
+				<append>($["uri"])</append>
+			</behavior>
+		</completion>
+		<completion string="request.queue">
+			<behavior>
+				<append>()</append>
+			</behavior>
+		</completion>
+	</set>
+
+	<!-- ==================== MIXING / SWITCHING ==================== -->
+	<set name="liquidsoap.functions.mixing" symbol="function">
+		<completion string="fallback">
+			<behavior>
+				<append>(track_sensitive=$[true], [
+  $[sources]
+])</append>
+			</behavior>
+		</completion>
+		<completion string="switch">
+			<behavior>
+				<append>(track_sensitive=$[true], [
+  ({$[condition]}, $[source])
+])</append>
+			</behavior>
+		</completion>
+		<completion string="sequence">
+			<behavior>
+				<append>([
+  $[sources]
+])</append>
+			</behavior>
+		</completion>
+		<completion string="add">
+			<behavior>
+				<append>([
+  $[sources]
+])</append>
+			</behavior>
+		</completion>
+		<completion string="mux_audio">
+			<behavior>
+				<append>(audio=$[audio_source], $[video_source])</append>
+			</behavior>
+		</completion>
+		<completion string="mux_video">
+			<behavior>
+				<append>(video=$[video_source], $[audio_source])</append>
+			</behavior>
+		</completion>
+		<completion string="rotate">
+			<behavior>
+				<append>([
+  $[sources]
+])</append>
+			</behavior>
+		</completion>
+		<completion string="random">
+			<behavior>
+				<append>([
+  $[sources]
+])</append>
+			</behavior>
+		</completion>
+	</set>
+
+	<!-- ==================== AUDIO EFFECTS ==================== -->
+	<set name="liquidsoap.functions.effects" symbol="function">
+		<completion string="crossfade">
+			<behavior>
+				<append>($[source])</append>
+			</behavior>
+		</completion>
+		<completion string="fade.in">
+			<behavior>
+				<append>(duration=$[3.], $[source])</append>
+			</behavior>
+		</completion>
+		<completion string="fade.out">
+			<behavior>
+				<append>(duration=$[3.], $[source])</append>
+			</behavior>
+		</completion>
+		<completion string="amplify">
+			<behavior>
+				<append>($[1.], $[source])</append>
+			</behavior>
+		</completion>
+		<completion string="normalize">
+			<behavior>
+				<append>($[source])</append>
+			</behavior>
+		</completion>
+		<completion string="compress">
+			<behavior>
+				<append>($[source])</append>
+			</behavior>
+		</completion>
+		<completion string="audio_to_stereo">
+			<behavior>
+				<append>($[source])</append>
+			</behavior>
+		</completion>
+		<completion string="mean">
+			<behavior>
+				<append>($[source])</append>
+			</behavior>
+		</completion>
+		<completion string="swap">
+			<behavior>
+				<append>($[source])</append>
+			</behavior>
+		</completion>
+		<completion string="nrj">
+			<behavior>
+				<append>($[source])</append>
+			</behavior>
+		</completion>
+	</set>
+
+	<!-- ==================== CALLBACKS (2.4.0 method-style) ==================== -->
+	<set name="liquidsoap.functions.events" symbol="method">
+		<!-- 2.4.0: callbacks are methods on source, synchronous is required -->
+		<completion string="on_metadata">
+			<behavior>
+				<append>(synchronous=$[true], fun (m) -> $[log("New track: #{m['title']}")])</append>
+			</behavior>
+		</completion>
+		<completion string="on_track">
+			<behavior>
+				<append>(synchronous=$[true], fun (m) -> $[log("Track started")])</append>
+			</behavior>
+		</completion>
+		<completion string="on_end">
+			<behavior>
+				<append>(synchronous=$[false], delay=$[5.], fun (remaining) -> $[log("Track ending")])</append>
+			</behavior>
+		</completion>
+		<completion string="on_connect">
+			<behavior>
+				<append>(synchronous=$[true], fun () -> $[log("Connected!")])</append>
+			</behavior>
+		</completion>
+		<completion string="on_disconnect">
+			<behavior>
+				<append>(synchronous=$[true], fun () -> $[log("Disconnected")])</append>
+			</behavior>
+		</completion>
+		<completion string="on_ready">
+			<behavior>
+				<append>(synchronous=$[true], fun () -> $[log("Ready")])</append>
+			</behavior>
+		</completion>
+		<!-- 2.4.0: insert_metadata is now a method, not a wrapping operator -->
+		<completion string="insert_metadata">
+			<behavior>
+				<append>([("$[title]", "$[value]")])</append>
+			</behavior>
+		</completion>
+		<completion string="map_metadata">
+			<behavior>
+				<append>(fun (m) -> $[m])</append>
+			</behavior>
+		</completion>
+		<completion string="strip_blank">
+			<behavior>
+				<append>($[source])</append>
+			</behavior>
+		</completion>
+		<completion string="skip_blank">
+			<behavior>
+				<append>($[source])</append>
+			</behavior>
+		</completion>
+		<completion string="source.skip">
+			<behavior>
+				<append>($[source])</append>
+			</behavior>
+		</completion>
+	</set>
+
+	<!-- ==================== UTILITY FUNCTIONS ==================== -->
+	<set name="liquidsoap.functions.util" symbol="function">
+		<completion string="log">
+			<behavior>
+				<append>($["message"])</append>
+			</behavior>
+		</completion>
+		<completion string="print">
+			<behavior>
+				<append>($["message"])</append>
+			</behavior>
+		</completion>
+		<completion string="log.important">
+			<behavior>
+				<append>($["message"])</append>
+			</behavior>
+		</completion>
+		<completion string="log.severe">
+			<behavior>
+				<append>($["message"])</append>
+			</behavior>
+		</completion>
+		<completion string="string.concat">
+			<behavior>
+				<append>([$[strings]])</append>
+			</behavior>
+		</completion>
+		<completion string="string.contains">
+			<behavior>
+				<append>(prefix=$["..."], $[str])</append>
+			</behavior>
+		</completion>
+		<completion string="list.hd">
+			<behavior>
+				<append>($[list])</append>
+			</behavior>
+		</completion>
+		<completion string="list.tl">
+			<behavior>
+				<append>($[list])</append>
+			</behavior>
+		</completion>
+		<completion string="list.nth">
+			<behavior>
+				<append>($[list], $[n])</append>
+			</behavior>
+		</completion>
+		<completion string="list.length">
+			<behavior>
+				<append>($[list])</append>
+			</behavior>
+		</completion>
+		<completion string="list.map">
+			<behavior>
+				<append>(fun (x) -> $[x], $[list])</append>
+			</behavior>
+		</completion>
+		<completion string="list.iter">
+			<behavior>
+				<append>(fun (x) -> $[()], $[list])</append>
+			</behavior>
+		</completion>
+		<completion string="list.filter">
+			<behavior>
+				<append>(fun (x) -> $[true], $[list])</append>
+			</behavior>
+		</completion>
+		<completion string="list.fold">
+			<behavior>
+				<append>(fun (acc, x) -> $[acc], $[init], $[list])</append>
+			</behavior>
+		</completion>
+		<completion string="list.assoc">
+			<behavior>
+				<append>($[key], $[list])</append>
+			</behavior>
+		</completion>
+		<completion string="float_of_int">
+			<behavior>
+				<append>($[n])</append>
+			</behavior>
+		</completion>
+		<completion string="int_of_float">
+			<behavior>
+				<append>($[x])</append>
+			</behavior>
+		</completion>
+		<completion string="string_of">
+			<behavior>
+				<append>($[value])</append>
+			</behavior>
+		</completion>
+	</set>
+
+	<!-- ==================== SYSTEM ==================== -->
+	<set name="liquidsoap.functions.system" symbol="function">
+		<completion string="settings" symbol="variable" />
+		<completion string="clock" symbol="variable" />
+		<completion string="null" symbol="keyword" />
+		<completion string="clock.assign_new">
+			<behavior>
+				<append>(~id=$["clock"], [$[source]])</append>
+			</behavior>
+		</completion>
+		<completion string="thread.run">
+			<behavior>
+				<append>($[fun () -> ()])</append>
+			</behavior>
+		</completion>
+		<!-- 2.4.0: cron support -->
+		<completion string="cron.add">
+			<behavior>
+				<append>($["0 * * * *"], fun () ->
+  $[log("Cron triggered")]
+)</append>
+			</behavior>
+		</completion>
+		<!-- 2.4.0: script path -->
+		<completion string="liquidsoap.script.path" symbol="variable" />
+		<!-- 2.4.0: loudness -->
+		<completion string="normalize_track_gain">
+			<behavior>
+				<append>($[source])</append>
+			</behavior>
+		</completion>
+	</set>
+
+	<!-- ==================== SERVER ==================== -->
+	<set name="liquidsoap.functions.server" symbol="function">
+		<completion string="server.register">
+			<behavior>
+				<append>(namespace=$["ns"], $["command"], fun (arg) -> $["response"])</append>
+			</behavior>
+		</completion>
+		<completion string="interactive.float">
+			<behavior>
+				<append>($["name"], $[0.])</append>
+			</behavior>
+		</completion>
+		<completion string="interactive.bool">
+			<behavior>
+				<append>($["name"], $[false])</append>
+			</behavior>
+		</completion>
+		<completion string="harbor.http.register">
+			<behavior>
+				<append>(port=$[8080], $["/"], fun (~protocol, ~data, ~headers, uri) -> $[http.response(data="OK")])</append>
+			</behavior>
+		</completion>
+	</set>
+
+</completions>

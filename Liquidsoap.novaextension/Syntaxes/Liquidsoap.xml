@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<syntax name="liquidsoap">
+	<meta>
+		<name>Liquidsoap</name>
+		<type>script</type>
+		<preferred-file-extension>liq</preferred-file-extension>
+	</meta>
+
+	<detectors>
+		<extension priority="1.0">liq</extension>
+	</detectors>
+
+	<indentation>
+		<increase>
+			<!-- Indent after: def, if, for, while, try, begin, then, else, do, fun...->
+			     Also indent after opening brackets left unclosed at EOL -->
+			<expression>(\b(def|if|then|else|elsif|for|while|do|try|catch|finally|begin|fun)\b.*$)|(\{[^}\"']*$)|(\[[^\]\"']*$)|(\([^)\"']*$)</expression>
+		</increase>
+		<decrease>
+			<!-- Dedent on: end, else, elsif, closing brackets -->
+			<expression>^\s*(end|else|elsif)\b|^\s*[\}\]\)]</expression>
+		</decrease>
+	</indentation>
+
+	<comments>
+		<single>
+			<expression>#</expression>
+		</single>
+		<multiline>
+			<starts-with>
+				<expression>#&lt;</expression>
+			</starts-with>
+			<ends-with>
+				<expression>&gt;#</expression>
+			</ends-with>
+		</multiline>
+	</comments>
+
+	<brackets>
+		<pair open="{" close="}" />
+		<pair open="[" close="]" />
+		<pair open="(" close=")" />
+	</brackets>
+
+	<autoclosing-pairs>
+		<pair open="{" close="}" skip="string,comment" />
+		<pair open="[" close="]" skip="string,comment" />
+		<pair open="(" close=")" skip="string,comment" />
+		<pair open="&quot;" close="&quot;" skip="string" />
+		<pair open="&apos;" close="&apos;" skip="string,comment" />
+	</autoclosing-pairs>
+
+	<surrounding-pairs>
+		<pair open="{" close="}" />
+		<pair open="[" close="]" />
+		<pair open="(" close=")" />
+		<pair open="&apos;" close="&apos;" />
+		<pair open="&quot;" close="&quot;" />
+	</surrounding-pairs>
+
+	<symbols redefinition="within-construct">
+		<local scope="within-construct" />
+		<documentation mode="before" match-multiple="comment" />
+	</symbols>
+
+	<scopes>
+		<!-- Strings must come before comments so # inside strings isn't treated as a comment -->
+		<include syntax="self" collection="strings" />
+
+		<!-- Comments -->
+		<scope name="liquidsoap.comment.single" spell-check="true">
+			<expression>\#(.*)$</expression>
+			<capture number="1" name="liquidsoap.comment.content" />
+		</scope>
+
+		<scope name="liquidsoap.comment.block" spell-check="true">
+			<starts-with>
+				<expression>\#&lt;</expression>
+			</starts-with>
+			<ends-with>
+				<expression>&gt;\#</expression>
+			</ends-with>
+		</scope>
+
+		<include syntax="self" collection="definitions" />
+
+		<!-- Keywords (excluding block openers/closers handled by definitions collection) -->
+		<scope name="liquidsoap.keyword">
+			<strings>
+				<string>let</string>
+				<string>fun</string>
+				<string>then</string>
+				<string>else</string>
+				<string>elsif</string>
+				<string>to</string>
+				<string>do</string>
+				<string>catch</string>
+				<string>finally</string>
+				<string>open</string>
+				<string>rec</string>
+				<string>replaces</string>
+				<string>and</string>
+				<string>or</string>
+				<string>not</string>
+				<string>mod</string>
+			</strings>
+		</scope>
+
+		<!-- Preprocessor -->
+		<scope name="liquidsoap.processing">
+			<expression>(%ifdef|%ifndef|%ifversion|%ifnversion|%ifencoder|%ifnencoder|%else|%endif|%include_extra|%include)\b</expression>
+		</scope>
+
+		<include syntax="self" collection="values" />
+		<include syntax="self" collection="identifiers" />
+		<include syntax="self" collection="syntax" />
+	</scopes>
+
+	<collections>
+		<!-- Definitions -->
+		<collection name="definitions">
+			<!-- def name(...) — match scope, only matches the opening line -->
+			<scope name="liquidsoap.definition.function">
+				<symbol type="function">
+					<context behavior="start" group-by-name="true" foldable="true">
+						<auto-close string="end" indentation="auto" />
+					</context>
+				</symbol>
+				<expression>\b(def)\s+(rec\s+|replaces\s+)?([a-zA-Z_][a-zA-Z0-9_'.]*)</expression>
+				<capture number="1" name="liquidsoap.keyword" />
+				<capture number="2" name="liquidsoap.keyword.modifier" />
+				<capture number="3" name="liquidsoap.identifier.function.name" />
+			</scope>
+
+			<!-- let binding -->
+			<scope name="liquidsoap.definition.variable">
+				<symbol type="variable" />
+				<expression>\b(let)\s+(eval\s+|replaces\s+)?([a-zA-Z_][a-zA-Z0-9_'.]*)</expression>
+				<capture number="1" name="liquidsoap.keyword" />
+				<capture number="2" name="liquidsoap.keyword.modifier" />
+				<capture number="3" name="liquidsoap.identifier.variable.name" />
+			</scope>
+
+			<!-- if — block opener -->
+			<scope name="liquidsoap.block.if">
+				<symbol type="block">
+					<context behavior="start" group="conditional" foldable="true">
+						<auto-close string="end" indentation="auto" />
+					</context>
+				</symbol>
+				<expression>\b(if)\b</expression>
+				<capture number="1" name="liquidsoap.keyword" />
+			</scope>
+
+			<!-- for — block opener -->
+			<scope name="liquidsoap.block.for">
+				<symbol type="block">
+					<context behavior="start" group="loop" foldable="true">
+						<auto-close string="end" indentation="auto" />
+					</context>
+				</symbol>
+				<expression>\b(for)\b</expression>
+				<capture number="1" name="liquidsoap.keyword" />
+			</scope>
+
+			<!-- while — block opener -->
+			<scope name="liquidsoap.block.while">
+				<symbol type="block">
+					<context behavior="start" group="loop" foldable="true">
+						<auto-close string="end" indentation="auto" />
+					</context>
+				</symbol>
+				<expression>\b(while)\b</expression>
+				<capture number="1" name="liquidsoap.keyword" />
+			</scope>
+
+			<!-- try — block opener -->
+			<scope name="liquidsoap.block.try">
+				<symbol type="block">
+					<context behavior="start" group="exception" foldable="true">
+						<auto-close string="end" indentation="auto" />
+					</context>
+				</symbol>
+				<expression>\b(try)\b</expression>
+				<capture number="1" name="liquidsoap.keyword" />
+			</scope>
+
+			<!-- begin — block opener -->
+			<scope name="liquidsoap.block.begin">
+				<symbol type="block">
+					<context behavior="start" group="begin" foldable="true">
+						<auto-close string="end" indentation="auto" />
+					</context>
+				</symbol>
+				<expression>\b(begin)\b</expression>
+				<capture number="1" name="liquidsoap.keyword" />
+			</scope>
+
+			<!-- end — closes the nearest open block context -->
+			<scope name="liquidsoap.definition.end">
+				<symbol type="block">
+					<context behavior="end" />
+				</symbol>
+				<expression>\b(end)\b</expression>
+				<capture number="1" name="liquidsoap.keyword" />
+			</scope>
+
+			<!-- Simple assignment: name = ... -->
+			<scope name="liquidsoap.definition.variable">
+				<expression>\b([a-zA-Z_][a-zA-Z0-9_']*)\s*=(?!=)</expression>
+				<capture number="1" name="liquidsoap.identifier.variable" />
+			</scope>
+		</collection>
+
+		<!-- Values: strings, numbers, booleans -->
+		<collection name="values">
+			<include syntax="self" collection="strings" />
+
+			<scope name="liquidsoap.value.boolean">
+				<strings>
+					<string>true</string>
+					<string>false</string>
+				</strings>
+			</scope>
+
+			<!-- Float (before integer) -->
+			<scope name="liquidsoap.value.number.float">
+				<expression>\b[0-9][0-9_]*\.[0-9][0-9_]*\b</expression>
+			</scope>
+			<!-- Hex -->
+			<scope name="liquidsoap.value.number.hex">
+				<expression>\b0[xX][0-9a-fA-F][0-9a-fA-F_]*\b</expression>
+			</scope>
+			<!-- Octal -->
+			<scope name="liquidsoap.value.number.octal">
+				<expression>\b0[oO][0-7][0-7_]*\b</expression>
+			</scope>
+			<!-- Integer -->
+			<scope name="liquidsoap.value.number">
+				<expression>\b[0-9][0-9_]*\b</expression>
+			</scope>
+		</collection>
+
+		<!-- Strings -->
+		<collection name="strings">
+			<!-- Double-quoted -->
+			<scope name="liquidsoap.string.double-quoted">
+				<starts-with>
+					<expression>&quot;</expression>
+				</starts-with>
+				<ends-with>
+					<expression>&quot;</expression>
+				</ends-with>
+				<subscopes>
+					<scope name="liquidsoap.string.escape">
+						<expression>\\.</expression>
+					</scope>
+					<scope name="liquidsoap.string-template.value">
+						<starts-with>
+							<expression>#\{</expression>
+						</starts-with>
+						<ends-with>
+							<expression>\}</expression>
+						</ends-with>
+						<subscopes>
+							<include syntax="self" />
+						</subscopes>
+					</scope>
+				</subscopes>
+			</scope>
+
+			<!-- Single-quoted -->
+			<scope name="liquidsoap.string.single-quoted">
+				<starts-with>
+					<expression>&apos;</expression>
+				</starts-with>
+				<ends-with>
+					<expression>&apos;</expression>
+				</ends-with>
+				<subscopes>
+					<scope name="liquidsoap.string.escape">
+						<expression>\\.</expression>
+					</scope>
+				</subscopes>
+			</scope>
+
+			<!-- Regex r/.../flags -->
+			<scope name="liquidsoap.string.regex">
+				<starts-with>
+					<expression>r/</expression>
+				</starts-with>
+				<ends-with>
+					<expression>/[gismu]*</expression>
+				</ends-with>
+				<subscopes>
+					<scope name="liquidsoap.regex.escaped">
+						<expression>\\/</expression>
+					</scope>
+				</subscopes>
+			</scope>
+
+			<!-- Raw string {tag|...|tag} -->
+			<scope name="liquidsoap.string.raw">
+				<starts-with>
+					<expression>\{([a-z_]*)\|</expression>
+				</starts-with>
+				<ends-with>
+					<template>\|$1\}</template>
+				</ends-with>
+			</scope>
+		</collection>
+
+		<!-- Identifiers -->
+		<collection name="identifiers">
+			<!-- Encoder literal %name -->
+			<scope name="liquidsoap.identifier.constant">
+				<expression>%[a-zA-Z][a-zA-Z0-9_']*</expression>
+			</scope>
+
+			<!-- Type keywords -->
+			<scope name="liquidsoap.identifier.type">
+				<strings>
+					<string>int</string>
+					<string>float</string>
+					<string>bool</string>
+					<string>string</string>
+					<string>unit</string>
+					<string>never</string>
+					<string>ref</string>
+					<string>source</string>
+				</strings>
+			</scope>
+
+			<!-- Function call: name( -->
+			<scope name="liquidsoap.identifier.function">
+				<expression>\b([a-zA-Z_][a-zA-Z0-9_'.]*)\s*\(</expression>
+				<capture number="1" name="liquidsoap.identifier.function" />
+			</scope>
+
+			<!-- Method: .name -->
+			<scope name="liquidsoap.identifier.method">
+				<expression>\.([a-zA-Z_][a-zA-Z0-9_']*)</expression>
+				<capture number="1" name="liquidsoap.identifier.method" />
+			</scope>
+
+			<!-- Named argument: ~name -->
+			<scope name="liquidsoap.identifier.argument">
+				<expression>~([a-zA-Z_][a-zA-Z0-9_']*)</expression>
+				<capture number="1" name="liquidsoap.identifier.argument" />
+			</scope>
+			<!-- Label argument: name= -->
+			<scope name="liquidsoap.identifier.argument">
+				<expression>\b([a-zA-Z_][a-zA-Z0-9_']*)=(?!=)</expression>
+				<capture number="1" name="liquidsoap.identifier.argument" />
+			</scope>
+
+			<!-- General identifier -->
+			<scope name="liquidsoap.identifier">
+				<expression>\b[a-zA-Z_][a-zA-Z0-9_']*\b</expression>
+			</scope>
+		</collection>
+
+		<!-- Syntax: operators and punctuation -->
+		<collection name="syntax">
+			<scope name="liquidsoap.operator">
+				<expression>-&gt;</expression>
+			</scope>
+			<scope name="liquidsoap.operator">
+				<expression>\.\.\.</expression>
+			</scope>
+			<scope name="liquidsoap.operator">
+				<expression>&gt;=|&lt;=|==|!=</expression>
+			</scope>
+			<scope name="liquidsoap.operator">
+				<expression>::</expression>
+			</scope>
+			<scope name="liquidsoap.operator">
+				<expression>:=</expression>
+			</scope>
+			<scope name="liquidsoap.operator">
+				<expression>\?\?</expression>
+			</scope>
+			<scope name="liquidsoap.operator">
+				<expression>[+\-*/^]</expression>
+			</scope>
+			<scope name="liquidsoap.bracket">
+				<expression>[\(\)\[\]\{\}]</expression>
+			</scope>
+		</collection>
+	</collections>
+</syntax>
