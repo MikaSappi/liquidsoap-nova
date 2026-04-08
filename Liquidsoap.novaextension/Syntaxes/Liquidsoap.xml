@@ -67,12 +67,7 @@
 		<!-- Strings must come before comments so # inside strings isn't treated as a comment -->
 		<include syntax="self" collection="strings" />
 
-		<!-- Comments -->
-		<scope name="liquidsoap.comment.single" spell-check="true">
-			<expression>\#(.*)$</expression>
-			<capture number="1" name="liquidsoap.comment.content" />
-		</scope>
-
+		<!-- Block comment must come before single-line comment so #< isn't consumed by it -->
 		<scope name="liquidsoap.comment.block" spell-check="true">
 			<starts-with>
 				<expression>\#&lt;</expression>
@@ -82,28 +77,16 @@
 			</ends-with>
 		</scope>
 
+		<scope name="liquidsoap.comment.single" spell-check="true">
+			<expression>\#(?!&lt;)(.*)$</expression>
+			<capture number="1" name="liquidsoap.comment.content" />
+		</scope>
+
 		<include syntax="self" collection="definitions" />
 
 		<!-- Keywords (excluding block openers/closers handled by definitions collection) -->
 		<scope name="liquidsoap.keyword">
-			<strings>
-				<string>let</string>
-				<string>fun</string>
-				<string>then</string>
-				<string>else</string>
-				<string>elsif</string>
-				<string>to</string>
-				<string>do</string>
-				<string>catch</string>
-				<string>finally</string>
-				<string>open</string>
-				<string>rec</string>
-				<string>replaces</string>
-				<string>and</string>
-				<string>or</string>
-				<string>not</string>
-				<string>mod</string>
-			</strings>
+			<expression>\b(let|fun|then|else|elsif|to|do|catch|finally|open|rec|replaces|and|or|not|mod)\b</expression>
 		</scope>
 
 		<!-- Preprocessor -->
@@ -205,9 +188,15 @@
 				<capture number="1" name="liquidsoap.keyword" />
 			</scope>
 
-			<!-- Simple assignment: name = ... -->
+			<!-- Label argument: name= (no space before =) -->
+			<scope name="liquidsoap.identifier.argument">
+				<expression>\b([a-zA-Z_][a-zA-Z0-9_']*)=(?!=)</expression>
+				<capture number="1" name="liquidsoap.identifier.argument" />
+			</scope>
+
+			<!-- Simple assignment: name = ... (requires space before =) -->
 			<scope name="liquidsoap.definition.variable">
-				<expression>\b([a-zA-Z_][a-zA-Z0-9_']*)\s*=(?!=)</expression>
+				<expression>\b([a-zA-Z_][a-zA-Z0-9_']*)\s+=(?!=)</expression>
 				<capture number="1" name="liquidsoap.identifier.variable" />
 			</scope>
 		</collection>
@@ -217,10 +206,7 @@
 			<include syntax="self" collection="strings" />
 
 			<scope name="liquidsoap.value.boolean">
-				<strings>
-					<string>true</string>
-					<string>false</string>
-				</strings>
+				<expression>\b(true|false)\b</expression>
 			</scope>
 
 			<!-- Float (before integer) -->
@@ -243,45 +229,15 @@
 
 		<!-- Strings -->
 		<collection name="strings">
-			<!-- Double-quoted -->
+			<!-- Double-quoted: single expression match so the entire string is atomic
+			     and top-level patterns (keywords, identifiers) cannot leak in. -->
 			<scope name="liquidsoap.string.double-quoted">
-				<starts-with>
-					<expression>&quot;</expression>
-				</starts-with>
-				<ends-with>
-					<expression>&quot;</expression>
-				</ends-with>
-				<subscopes>
-					<scope name="liquidsoap.string.escape">
-						<expression>\\.</expression>
-					</scope>
-					<scope name="liquidsoap.string-template.value">
-						<starts-with>
-							<expression>#\{</expression>
-						</starts-with>
-						<ends-with>
-							<expression>\}</expression>
-						</ends-with>
-						<subscopes>
-							<include syntax="self" />
-						</subscopes>
-					</scope>
-				</subscopes>
+				<expression>&quot;(?:[^&quot;\\]|\\.)*&quot;</expression>
 			</scope>
 
-			<!-- Single-quoted -->
+			<!-- Single-quoted: same approach -->
 			<scope name="liquidsoap.string.single-quoted">
-				<starts-with>
-					<expression>&apos;</expression>
-				</starts-with>
-				<ends-with>
-					<expression>&apos;</expression>
-				</ends-with>
-				<subscopes>
-					<scope name="liquidsoap.string.escape">
-						<expression>\\.</expression>
-					</scope>
-				</subscopes>
+				<expression>&apos;(?:[^&apos;\\]|\\.)*&apos;</expression>
 			</scope>
 
 			<!-- Regex r/.../flags -->
@@ -319,16 +275,7 @@
 
 			<!-- Type keywords -->
 			<scope name="liquidsoap.identifier.type">
-				<strings>
-					<string>int</string>
-					<string>float</string>
-					<string>bool</string>
-					<string>string</string>
-					<string>unit</string>
-					<string>never</string>
-					<string>ref</string>
-					<string>source</string>
-				</strings>
+				<expression>\b(int|float|bool|string|unit|never|ref|source)\b</expression>
 			</scope>
 
 			<!-- Function call: name( -->

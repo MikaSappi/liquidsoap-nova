@@ -33,6 +33,9 @@ Restart Nova. Any `.liq` file will activate the extension.
 
 Formatting requires `prettier` and `liquidsoap-prettier` — either globally or in your project's `node_modules`.
 
+## Issues
+You're welcome to [submit](https://github.com/MikaSappi/liquidsoap-nova/issues) any issues you may find in this product.
+
 ## License
 
 MIT
