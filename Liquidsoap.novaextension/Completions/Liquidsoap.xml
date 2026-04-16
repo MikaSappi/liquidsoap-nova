@@ -1,18 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <completions>
 
-	<!-- General identifier completion (not after a dot, not inside strings/comments) -->
+	<!--
+		Unified identifier/dotted completion.
+
+		The expression deliberately captures the ENTIRE dotted path (e.g.
+		"output.du") so the matched range covers every character the
+		completion string will overwrite. Splitting this into separate
+		"identifier" and "method" providers breaks dotted completions like
+		"output.dummy": a lookbehind-based method provider does not include
+		the dot in the replaceable range, so Nova inserts "output.dummy" on
+		top of the already-typed "output.", producing "output.output.dummy".
+	-->
 	<provider name="identifier">
 		<syntax>liquidsoap</syntax>
 		<selector>*:not(string,comment)</selector>
-		<expression>(?&lt;!\.)\b[a-zA-Z_][a-zA-Z0-9_]*</expression>
+		<expression>(?&lt;!\.)\b[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*</expression>
 
 		<symbols type="function">
 			<behavior>
 				<arguments prefix="(" suffix=")" separator=", " />
 			</behavior>
 		</symbols>
-		<symbols type="variable,constant,argument" />
+		<symbols type="variable,constant,argument,method,property" />
 
 		<set>liquidsoap.keywords</set>
 		<set>liquidsoap.types</set>
@@ -22,24 +32,6 @@
 		<set>liquidsoap.functions.input</set>
 		<set>liquidsoap.functions.source</set>
 		<set>liquidsoap.functions.mixing</set>
-		<set>liquidsoap.functions.effects</set>
-		<set>liquidsoap.functions.events</set>
-		<set>liquidsoap.functions.util</set>
-		<set>liquidsoap.functions.system</set>
-		<set>liquidsoap.functions.server</set>
-	</provider>
-
-	<!-- Method/dotted completion (after a dot) -->
-	<provider name="method">
-		<syntax>liquidsoap</syntax>
-		<selector>*:not(string,comment)</selector>
-		<expression>(?&lt;=\.)[a-zA-Z_][a-zA-Z0-9_]*</expression>
-
-		<symbols type="method,property" />
-
-		<set>liquidsoap.functions.output</set>
-		<set>liquidsoap.functions.input</set>
-		<set>liquidsoap.functions.source</set>
 		<set>liquidsoap.functions.effects</set>
 		<set>liquidsoap.functions.events</set>
 		<set>liquidsoap.functions.util</set>

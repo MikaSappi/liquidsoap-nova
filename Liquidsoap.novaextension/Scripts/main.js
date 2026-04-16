@@ -282,6 +282,214 @@ function shouldFormatOnSave() {
 }
 
 // ==================== FORMATTER ====================
+//
+// Design notes:
+//
+// Nova's Process API does NOT inherit the user's interactive shell PATH.
+// Tools installed by nvm, Homebrew, Volta, asdf, etc. live outside the
+// minimal PATH Nova sees, so spawning "npx" directly fails with
+// "env: npx: No such file or directory". Every shell-out therefore goes
+// through `$SHELL -l -c …` so rc files and version managers initialise.
+//
+// For plugin discovery, relying on `npx --package foo --package bar` is
+// not enough: prettier v3 resolves plugins by doing ESM import from its
+// current working directory, which is the user's workspace — NOT the
+// npx sandbox — so the plugin in the sandbox is invisible. Instead we
+// maintain our own small `node_modules` under `~/Library/Caches/…`, run
+// `npm install …@latest` there, and invoke prettier with cwd set to
+// that cache dir. That makes prettier's cwd-anchored plugin resolution
+// find `liquidsoap-prettier` immediately, and lets us update
+// independently of whatever the user has installed elsewhere.
+
+// How often to re-run `npm install @latest` to pick up new releases.
+var FORMATTER_UPDATE_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
+
+// Shell-quote a string for safe interpolation into a shell command.
+function shellQuote(s) {
+    return "'" + String(s).replace(/'/g, "'\\''") + "'";
+}
+
+function getUserShell() {
+    return nova.environment.SHELL || "/bin/zsh";
+}
+
+function getFormatterCacheDir() {
+    // Prefer Nova's per-extension storage when available, fall back to
+    // a stable path under the user's Caches dir.
+    if (nova.extension && typeof nova.extension.globalStoragePath === "string") {
+        return nova.extension.globalStoragePath + "/formatter";
+    }
+    var home = nova.environment.HOME || "/tmp";
+    return home + "/Library/Caches/com.fremen.liquidsoap/formatter";
+}
+
+function formatterIsInstalled(cacheDir) {
+    return nova.fs.access(
+        cacheDir + "/node_modules/liquidsoap-prettier/package.json",
+        nova.fs.F_OK
+    );
+}
+
+function formatterLastUpdateMs(cacheDir) {
+    var marker = cacheDir + "/.last-update";
+    if (!nova.fs.access(marker, nova.fs.F_OK)) return 0;
+    try {
+        var stats = nova.fs.stat(marker);
+        if (stats && stats.mtime) return stats.mtime.getTime();
+    } catch (e) {
+        // fall through
+    }
+    return 0;
+}
+
+// Run `npm install liquidsoap-prettier@latest prettier@latest` in the
+// cache dir. Creates the directory and seed package.json if missing,
+// and writes a `.last-update` marker on success.
+function runNpmInstall(cacheDir) {
+    return new Promise(function (resolve, reject) {
+        var script =
+            "set -e; " +
+            "mkdir -p " + shellQuote(cacheDir) + "; " +
+            "cd " + shellQuote(cacheDir) + "; " +
+            "[ -f package.json ] || printf '%s\\n' '{\"private\":true}' > package.json; " +
+            "npm install --silent --no-audit --no-fund --no-progress " +
+            "liquidsoap-prettier@latest prettier@latest; " +
+            "touch .last-update";
+
+        var proc;
+        try {
+            proc = new Process(getUserShell(), {
+                args: ["-l", "-c", script],
+                stdio: "pipe",
+                cwd: nova.environment.HOME || undefined,
+            });
+        } catch (e) {
+            reject(e);
+            return;
+        }
+
+        var stderr = "";
+        proc.onStderr(function (line) { stderr += line; });
+        proc.onDidExit(function (status) {
+            if (status === 0) {
+                resolve();
+            } else {
+                reject(new Error(
+                    "npm install exited with status " + status +
+                    (stderr ? ("\n" + stderr.trim()) : "")
+                ));
+            }
+        });
+
+        try {
+            proc.start();
+        } catch (e) {
+            reject(e);
+        }
+    });
+}
+
+// Ensures the bundled formatter is installed in the cache dir; kicks
+// off a background update if the install is stale. Resolves with the
+// cache dir when the formatter is ready to use.
+var _installInFlight = null;
+function ensureFormatter() {
+    var cacheDir = getFormatterCacheDir();
+
+    if (!formatterIsInstalled(cacheDir)) {
+        // First-time install must block the format call.
+        if (!_installInFlight) {
+            _installInFlight = runNpmInstall(cacheDir).then(
+                function () { _installInFlight = null; },
+                function (err) { _installInFlight = null; throw err; }
+            );
+        }
+        return _installInFlight.then(function () { return cacheDir; });
+    }
+
+    // Already installed — run format immediately. If stale, refresh in
+    // the background so the NEXT format picks up any new release.
+    var age = Date.now() - formatterLastUpdateMs(cacheDir);
+    if (age > FORMATTER_UPDATE_INTERVAL_MS && !_installInFlight) {
+        _installInFlight = runNpmInstall(cacheDir).then(
+            function () { _installInFlight = null; },
+            function (err) {
+                _installInFlight = null;
+                console.warn(
+                    "Liquidsoap formatter background update failed: " + err.message
+                );
+            }
+        );
+        // Intentionally not awaited.
+    }
+    return Promise.resolve(cacheDir);
+}
+
+function runPrettier(editor, fullRange, originalText, innerCmd, cwd) {
+    return new Promise(function (resolve, reject) {
+        var cmd = getUserShell();
+        var args = ["-l", "-c", innerCmd];
+        var proc;
+        try {
+            proc = new Process(cmd, {
+                args: args,
+                stdio: "pipe",
+                cwd: cwd,
+            });
+        } catch (e) {
+            nova.workspace.showErrorMessage(
+                "Liquidsoap: could not launch shell (" + cmd + "): " + e.message
+            );
+            resolve();
+            return;
+        }
+
+        var stdout = "";
+        var stderr = "";
+        proc.onStdout(function (line) { stdout += line; });
+        proc.onStderr(function (line) { stderr += line; });
+
+        proc.onDidExit(function (status) {
+            if (status === 0 && stdout.length > 0) {
+                if (stdout !== originalText) {
+                    editor.edit(function (edit) {
+                        edit.replace(fullRange, stdout);
+                    }).then(resolve, reject);
+                } else {
+                    resolve();
+                }
+                return;
+            }
+
+            console.error(
+                "Liquidsoap formatter exited with status " + status +
+                "\ncmd: " + cmd + " " + args.join(" ") +
+                "\nstderr: " + stderr
+            );
+
+            var msg = (stderr && stderr.trim().length > 0)
+                ? stderr.trim()
+                : "Formatter exited with status " + status + " and no output.";
+            if (msg.length > 600) msg = msg.slice(0, 600) + "…";
+            nova.workspace.showErrorMessage("Liquidsoap formatter failed:\n\n" + msg);
+            resolve();
+        });
+
+        try {
+            proc.start();
+        } catch (e) {
+            nova.workspace.showErrorMessage(
+                "Liquidsoap: failed to start formatter: " + e.message
+            );
+            resolve();
+            return;
+        }
+
+        var writer = proc.stdin.getWriter();
+        writer.write(originalText);
+        writer.close();
+    });
+}
 
 function formatDocument(editor) {
     var document = editor.document;
@@ -292,61 +500,46 @@ function formatDocument(editor) {
         return Promise.resolve();
     }
 
-    var prettierPath = nova.config.get("liquidsoap.prettierPath");
-    var usePrettierPath = prettierPath && prettierPath.trim().length > 0;
+    var userPrettier = nova.config.get("liquidsoap.prettierPath");
+    var usePrettierPath = userPrettier && userPrettier.trim().length > 0;
+    var stdinFilepath = document.path || "file.liq";
 
-    var cmd, args;
     if (usePrettierPath) {
-        cmd = prettierPath.trim();
-        args = [
-            "--plugin", "liquidsoap-prettier",
-            "--parser", "liquidsoap",
-            "--stdin-filepath", "file.liq",
-        ];
-    } else {
-        cmd = "/usr/bin/env";
-        args = [
-            "npx", "--yes", "prettier",
-            "--plugin", "liquidsoap-prettier",
-            "--parser", "liquidsoap",
-            "--stdin-filepath", "file.liq",
-        ];
+        // User-provided prettier: they are responsible for having
+        // liquidsoap-prettier resolvable from their workspace.
+        var userCmd =
+            shellQuote(userPrettier.trim()) +
+            " --plugin liquidsoap-prettier" +
+            " --parser liquidsoap" +
+            " --stdin-filepath " + shellQuote(stdinFilepath);
+        return runPrettier(
+            editor, fullRange, originalText,
+            userCmd,
+            nova.workspace.path || undefined
+        );
     }
 
-    return new Promise(function (resolve, reject) {
-        var process = new Process(cmd, {
-            args: args,
-            stdio: "pipe",
-            cwd: nova.workspace.path || undefined,
-        });
-
-        var stdout = "";
-        var stderr = "";
-
-        process.onStdout(function (line) { stdout += line; });
-        process.onStderr(function (line) { stderr += line; });
-
-        process.onDidExit(function (status) {
-            if (status === 0 && stdout.length > 0) {
-                if (stdout !== originalText) {
-                    editor.edit(function (edit) {
-                        edit.replace(fullRange, stdout);
-                    }).then(resolve, reject);
-                } else {
-                    resolve();
-                }
-            } else {
-                if (stderr) {
-                    console.error("Liquidsoap formatter error: " + stderr);
-                }
-                resolve();
-            }
-        });
-
-        process.start();
-
-        var writer = process.stdin.getWriter();
-        writer.write(originalText);
-        writer.close();
+    // Bundled formatter via cache dir.
+    return ensureFormatter().then(function (cacheDir) {
+        // cwd = cacheDir so prettier's cwd-based ESM plugin resolution
+        // finds liquidsoap-prettier in cacheDir/node_modules.
+        // --stdin-filepath carries the real file path so prettier's
+        // file-based config discovery / parser selection still work as
+        // if the file were being edited in place.
+        var bin = shellQuote(cacheDir + "/node_modules/.bin/prettier");
+        var innerCmd =
+            bin +
+            " --plugin liquidsoap-prettier" +
+            " --parser liquidsoap" +
+            " --stdin-filepath " + shellQuote(stdinFilepath);
+        return runPrettier(editor, fullRange, originalText, innerCmd, cacheDir);
+    }, function (err) {
+        console.error("Liquidsoap formatter install failed: " + err.message);
+        nova.workspace.showErrorMessage(
+            "Liquidsoap: could not install formatter " +
+            "(prettier + liquidsoap-prettier).\n\n" +
+            err.message +
+            "\n\nMake sure Node.js and npm are installed and reachable from your login shell."
+        );
     });
 }

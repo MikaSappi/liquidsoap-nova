@@ -31,7 +31,9 @@ ln -s /path/to/Liquidsoap.novaextension \
 
 Restart Nova. Any `.liq` file will activate the extension.
 
-Formatting requires `prettier` and `liquidsoap-prettier` — either globally or in your project's `node_modules`.
+Formatting requires a working `npx` (Node.js). The extension will fetch the latest `prettier` and `liquidsoap-prettier` automatically the first time you format — no manual `npm install` is required. Subsequent formats use npx's local cache.
+
+If you'd rather use your own prettier install (e.g. to pin a specific version, or to work offline), set **Settings → Extensions → Liquidsoap → Path to prettier executable** to your prettier binary and make sure `liquidsoap-prettier` is resolvable from your workspace.
 
 ## Issues
 You're welcome to [submit](https://github.com/MikaSappi/liquidsoap-nova/issues) any issues you may find in this product.
