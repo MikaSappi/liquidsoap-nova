@@ -75,11 +75,25 @@
 			<ends-with>
 				<expression>&gt;\#</expression>
 			</ends-with>
+			<subscopes>
+				<scope name="liquidsoap.comment.doc.tag">
+					<expression>@(param|category|argsof|flag|docof)\b</expression>
+				</scope>
+			</subscopes>
 		</scope>
 
 		<scope name="liquidsoap.comment.single" spell-check="true">
-			<expression>\#(?!&lt;)(.*)$</expression>
-			<capture number="1" name="liquidsoap.comment.content" />
+			<starts-with>
+				<expression>\#(?!&lt;)</expression>
+			</starts-with>
+			<ends-with>
+				<expression>$</expression>
+			</ends-with>
+			<subscopes>
+				<scope name="liquidsoap.comment.doc.tag">
+					<expression>@(param|category|argsof|flag|docof)\b</expression>
+				</scope>
+			</subscopes>
 		</scope>
 
 		<include syntax="self" collection="definitions" />
@@ -115,10 +129,16 @@
 				<capture number="3" name="liquidsoap.identifier.function.name" />
 			</scope>
 
+			<!-- let pattern binding: let [a, b] = ..., let {x, y} = ..., let (p, q) = ... -->
+			<scope name="liquidsoap.definition.pattern">
+				<expression>\b(let)\s+(?=[\[\{\(])</expression>
+				<capture number="1" name="liquidsoap.keyword" />
+			</scope>
+
 			<!-- let binding -->
 			<scope name="liquidsoap.definition.variable">
 				<symbol type="variable" />
-				<expression>\b(let)\s+(eval\s+|replaces\s+)?([a-zA-Z_][a-zA-Z0-9_'.]*)</expression>
+				<expression>\b(let)\s+(eval\s+|replaces\s+|json\.parse(?:\[[^\]]*\])?\s+|yaml\.parse(?:\[[^\]]*\])?\s+)?([a-zA-Z_][a-zA-Z0-9_'.]*)</expression>
 				<capture number="1" name="liquidsoap.keyword" />
 				<capture number="2" name="liquidsoap.keyword.modifier" />
 				<capture number="3" name="liquidsoap.identifier.variable.name" />
@@ -135,15 +155,16 @@
 				<capture number="1" name="liquidsoap.keyword" />
 			</scope>
 
-			<!-- for — block opener -->
+			<!-- for — block opener; captures the loop variable -->
 			<scope name="liquidsoap.block.for">
 				<symbol type="block">
 					<context behavior="start" group="loop" foldable="true">
 						<auto-close string="end" indentation="auto" />
 					</context>
 				</symbol>
-				<expression>\b(for)\b</expression>
+				<expression>\b(for)\s+([a-zA-Z_][a-zA-Z0-9_']*)</expression>
 				<capture number="1" name="liquidsoap.keyword" />
+				<capture number="2" name="liquidsoap.identifier.variable.name" />
 			</scope>
 
 			<!-- while — block opener -->
@@ -209,6 +230,10 @@
 				<expression>\b(true|false)\b</expression>
 			</scope>
 
+			<!-- Time predicate (e.g. 1h30m, 10w20h30m40s, 60s) — must come before float/integer -->
+			<scope name="liquidsoap.value.time">
+				<expression>\b(?:[0-9]+[whms])+\b</expression>
+			</scope>
 			<!-- Float (before integer) -->
 			<scope name="liquidsoap.value.number.float">
 				<expression>\b[0-9][0-9_]*\.[0-9][0-9_]*\b</expression>
@@ -229,15 +254,43 @@
 
 		<!-- Strings -->
 		<collection name="strings">
-			<!-- Double-quoted: single expression match so the entire string is atomic
-			     and top-level patterns (keywords, identifiers) cannot leak in. -->
+			<!-- Double-quoted: starts/ends so we can highlight escapes and #{...} interpolation
+			     without letting top-level patterns leak in. -->
 			<scope name="liquidsoap.string.double-quoted">
-				<expression>&quot;(?:[^&quot;\\]|\\.)*&quot;</expression>
+				<starts-with>
+					<expression>&quot;</expression>
+				</starts-with>
+				<ends-with>
+					<expression>&quot;</expression>
+				</ends-with>
+				<subscopes>
+					<scope name="liquidsoap.string.escape">
+						<expression>\\.</expression>
+					</scope>
+					<scope name="liquidsoap.string.interpolation">
+						<starts-with>
+							<expression>\#\{</expression>
+						</starts-with>
+						<ends-with>
+							<expression>\}</expression>
+						</ends-with>
+					</scope>
+				</subscopes>
 			</scope>
 
-			<!-- Single-quoted: same approach -->
+			<!-- Single-quoted: escapes only, no interpolation -->
 			<scope name="liquidsoap.string.single-quoted">
-				<expression>&apos;(?:[^&apos;\\]|\\.)*&apos;</expression>
+				<starts-with>
+					<expression>&apos;</expression>
+				</starts-with>
+				<ends-with>
+					<expression>&apos;</expression>
+				</ends-with>
+				<subscopes>
+					<scope name="liquidsoap.string.escape">
+						<expression>\\.</expression>
+					</scope>
+				</subscopes>
 			</scope>
 
 			<!-- Regex r/.../flags -->
@@ -326,6 +379,14 @@
 			</scope>
 			<scope name="liquidsoap.operator">
 				<expression>\?\?</expression>
+			</scope>
+			<!-- Dereference: !ident (must come before plain ! / arithmetic) -->
+			<scope name="liquidsoap.operator">
+				<expression>!(?=[a-zA-Z_])</expression>
+			</scope>
+			<!-- Dotted arithmetic: +. -. *. /. (before plain arithmetic) -->
+			<scope name="liquidsoap.operator">
+				<expression>[+\-*/]\.</expression>
 			</scope>
 			<scope name="liquidsoap.operator">
 				<expression>[+\-*/^]</expression>

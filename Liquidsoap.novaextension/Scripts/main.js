@@ -7,6 +7,7 @@
 
 var formatDisposable = null;
 var issueDisposable = null;
+var completionDisposable = null;
 var saveDisposables = [];
 
 exports.activate = function () {
@@ -19,6 +20,11 @@ exports.activate = function () {
         "liquidsoap",
         new LiquidsoapIssueAssistant(),
         { event: "onChange" }
+    );
+
+    completionDisposable = nova.assistants.registerCompletionAssistant(
+        "liquidsoap",
+        new LiquidsoapCompletionAssistant()
     );
 
     nova.workspace.onDidAddTextEditor(function (editor) {
@@ -41,6 +47,10 @@ exports.deactivate = function () {
     if (issueDisposable) {
         issueDisposable.dispose();
         issueDisposable = null;
+    }
+    if (completionDisposable) {
+        completionDisposable.dispose();
+        completionDisposable = null;
     }
     saveDisposables.forEach(function (d) { d.dispose(); });
     saveDisposables = [];
@@ -543,3 +553,156 @@ function formatDocument(editor) {
         );
     });
 }
+
+// ==================== CROSS-FILE COMPLETIONS ====================
+//
+// Scans .liq files in the same directory as the file being edited and
+// surfaces their top-level `def`, `let`, and bare-assignment names as
+// completion items. Cache is keyed by file path with mtime invalidation,
+// so a completion request only re-reads files that actually changed.
+
+function shouldUseCrossFileCompletions() {
+    var ws = nova.workspace.config.get("liquidsoap.crossFileCompletions");
+    if (ws === "Enable") return true;
+    if (ws === "Disable") return false;
+    // Default: enabled (only disabled if explicitly set to false globally).
+    return nova.config.get("liquidsoap.crossFileCompletions") !== false;
+}
+
+// path -> { mtime: number, defs: [{ name, kind }] }
+var _crossFileCache = {};
+
+function _dirname(p) {
+    var i = p.lastIndexOf("/");
+    return i < 0 ? "." : p.slice(0, i);
+}
+function _basename(p) {
+    var i = p.lastIndexOf("/");
+    return i < 0 ? p : p.slice(i + 1);
+}
+
+function _mtimeMs(path) {
+    try {
+        var s = nova.fs.stat(path);
+        if (s && s.mtime) return s.mtime.getTime();
+    } catch (e) { /* fall through */ }
+    return 0;
+}
+
+function _readFile(path) {
+    try {
+        var f = nova.fs.open(path, "r");
+        var text = f.read();
+        f.close();
+        return typeof text === "string" ? text : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+// Extract top-level definitions from a liquidsoap source string.
+// Conservative: only matches `def`/`let`/`name =` at the start of a line
+// (no leading whitespace) so function-parameter defaults like `~port=8000`
+// and nested defs don't pollute the suggestion list.
+function _extractDefinitions(text) {
+    var out = [];
+    var seen = {};
+    var m;
+
+    var defRe = /^def\s+(?:rec\s+|replaces\s+)?([a-zA-Z_][a-zA-Z0-9_'.]*)/gm;
+    while ((m = defRe.exec(text)) !== null) {
+        if (seen[m[1]]) continue;
+        seen[m[1]] = true;
+        out.push({ name: m[1], kind: "function" });
+    }
+
+    var letRe = /^let\s+(?:eval\s+|replaces\s+|json\.parse(?:\[[^\]]*\])?\s+|yaml\.parse(?:\[[^\]]*\])?\s+)?([a-zA-Z_][a-zA-Z0-9_'.]*)\s*=/gm;
+    while ((m = letRe.exec(text)) !== null) {
+        if (seen[m[1]]) continue;
+        seen[m[1]] = true;
+        out.push({ name: m[1], kind: "variable" });
+    }
+
+    var assignRe = /^([a-zA-Z_][a-zA-Z0-9_']*)\s*=(?!=)/gm;
+    while ((m = assignRe.exec(text)) !== null) {
+        if (seen[m[1]]) continue;
+        seen[m[1]] = true;
+        out.push({ name: m[1], kind: "variable" });
+    }
+
+    return out;
+}
+
+function _getDefsForFile(path) {
+    var mtime = _mtimeMs(path);
+    if (!mtime) {
+        delete _crossFileCache[path];
+        return [];
+    }
+    var cached = _crossFileCache[path];
+    if (cached && cached.mtime === mtime) return cached.defs;
+    var text = _readFile(path);
+    if (text === null) return [];
+    var defs = _extractDefinitions(text);
+    _crossFileCache[path] = { mtime: mtime, defs: defs };
+    return defs;
+}
+
+function _listSiblingLiqFiles(dir, excludeBasename) {
+    var entries;
+    try {
+        entries = nova.fs.listdir(dir);
+    } catch (e) {
+        return [];
+    }
+    var out = [];
+    for (var i = 0; i < entries.length; i++) {
+        var name = entries[i];
+        if (name === excludeBasename) continue;
+        if (name.length < 5) continue;
+        if (name.slice(-4).toLowerCase() !== ".liq") continue;
+        out.push(dir + "/" + name);
+    }
+    return out;
+}
+
+function LiquidsoapCompletionAssistant() {}
+
+LiquidsoapCompletionAssistant.prototype.provideCompletionItems =
+    function (editor, _context) {
+        if (!shouldUseCrossFileCompletions()) return [];
+
+        var docPath = editor.document.path;
+        if (!docPath) return []; // unsaved document — no directory to scan
+
+        var dir = _dirname(docPath);
+        var selfBase = _basename(docPath);
+        var files = _listSiblingLiqFiles(dir, selfBase);
+        if (files.length === 0) return [];
+
+        var items = [];
+        var seen = {};
+        for (var i = 0; i < files.length; i++) {
+            var path = files[i];
+            var src = _basename(path);
+            var defs = _getDefsForFile(path);
+            for (var j = 0; j < defs.length; j++) {
+                var d = defs[j];
+                if (seen[d.name]) continue;
+                seen[d.name] = true;
+
+                var kind = d.kind === "function"
+                    ? CompletionItemKind.Function
+                    : CompletionItemKind.Variable;
+                var item = new CompletionItem(d.name, kind);
+                if (d.kind === "function") {
+                    item.insertText = d.name + "($0)";
+                    item.insertTextFormat = InsertTextFormat.Snippet;
+                }
+                item.detail = src;
+                item.documentation = "Defined in " + src;
+                items.push(item);
+            }
+        }
+        return items;
+    };

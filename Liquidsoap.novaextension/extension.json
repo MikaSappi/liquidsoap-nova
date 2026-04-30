@@ -3,7 +3,7 @@
     "name": "Liquidsoap",
     "organization": "Mika Säppi / Fremen / Collins Group",
     "description": "Liquidsoap language support for Nova — syntax highlighting, completions, and formatting.",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "license": "MIT",
     "repository": "https://github.com/MikaSappi/liquidsoap-nova",
     "categories": ["languages", "formatters", "completions"],
@@ -46,6 +46,13 @@
             "description": "Leave empty to use npx prettier",
             "type": "string",
             "default": ""
+        },
+        {
+            "key": "liquidsoap.crossFileCompletions",
+            "title": "Suggest names defined in sibling .liq files",
+            "description": "Scans .liq files in the same directory as the file being edited and suggests their top-level def/let/assignment names as completions. Cached per-file by mtime; cost is negligible.",
+            "type": "boolean",
+            "default": true
         }
     ],
 
@@ -53,6 +60,13 @@
         {
             "key": "liquidsoap.formatOnSave",
             "title": "Format on Save",
+            "type": "enum",
+            "values": ["Global Default", "Enable", "Disable"],
+            "default": "Global Default"
+        },
+        {
+            "key": "liquidsoap.crossFileCompletions",
+            "title": "Suggest names defined in sibling .liq files",
             "type": "enum",
             "values": ["Global Default", "Enable", "Disable"],
             "default": "Global Default"
