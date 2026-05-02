@@ -15,7 +15,14 @@
 	<provider name="identifier">
 		<syntax>liquidsoap</syntax>
 		<selector>*:not(string,comment)</selector>
-		<expression>(?&lt;!\.)\b[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*</expression>
+		<!--
+			The leading `%?` lets the match include the encoder/preprocessor
+			sigil (e.g. `%wav`, `%include`). Without it, typing `%w` matches
+			only `w`, and Nova inserts `%wav` on top of the typed `%`, giving
+			`%%wav`. The lookbehind blocks matching mid-identifier and after a
+			dot (so dotted completions stay anchored at the path root).
+		-->
+		<expression>(?&lt;![\.\w])%?[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*</expression>
 
 		<symbols type="function">
 			<behavior>
