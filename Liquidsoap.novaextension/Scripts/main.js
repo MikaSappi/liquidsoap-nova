@@ -630,6 +630,15 @@ function _extractDefinitions(text) {
         out.push({ name: m[1], kind: "variable" });
     }
 
+    // Ref-update operator `name := ...`. Commonly used at top level to
+    // introduce a ref-typed name, so surface it the same as a plain assignment.
+    var refRe = /^([a-zA-Z_][a-zA-Z0-9_']*)\s*:=/gm;
+    while ((m = refRe.exec(text)) !== null) {
+        if (seen[m[1]]) continue;
+        seen[m[1]] = true;
+        out.push({ name: m[1], kind: "variable" });
+    }
+
     return out;
 }
 

@@ -1,5 +1,6 @@
 ## 02 MAY 2026
 Index top-level `name = …` assignments as variable symbols, so they show up in the dictionary / completion suggestions alongside `def` and `let` bindings.
+Also index top-level `name := …` ref assignments, both in the syntax symbol provider and the cross-file extractor.
 Fix `%`-prefixed completions (e.g. `%wav`, `%mp3`) doubling the sigil to `%%wav` when accepted — the completion provider now matches the leading `%` so the inserted text overwrites it instead of stacking on top.
 
 ### NOTE: 0.1.4 skipped due to Nova being helpful with the version numbers.
